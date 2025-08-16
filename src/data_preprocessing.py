@@ -1,234 +1,183 @@
 """
-Data preprocessing module for Rossmann Sales Forecasting
-Handles data loading, cleaning, and initial transformations
+Data Preprocessing Module for Rossmann Sales Forecasting
+Handles data loading, cleaning, and basic preprocessing
 """
 
 import pandas as pd
-import numpy as np
-from typing import Tuple, Optional
-import os
-import sys
+from typing import Tuple
+import warnings
+warnings.filterwarnings('ignore')
 
-
-def load_data(data_path: str = './data') -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Load train, test, and store data from CSV files
+    Load the Rossmann dataset files
     
-    Args:
-        data_path: Path to data directory containing CSV files
-        
     Returns:
-        Tuple of (train_df, test_df, store_df)
-        
-    Raises:
-        FileNotFoundError: If required CSV files are not found
+        Tuple of (train_data, test_data, store_data)
     """
     try:
-        train_path = os.path.join(data_path, 'train.csv')
-        test_path = os.path.join(data_path, 'test.csv')
-        store_path = os.path.join(data_path, 'store.csv')
+        # Load the datasets
+        train_data = pd.read_csv('data/train.csv')
+        test_data = pd.read_csv('data/test.csv') 
+        store_data = pd.read_csv('data/store.csv')
         
-        train_df = pd.read_csv(train_path)
-        test_df = pd.read_csv(test_path)
-        store_df = pd.read_csv(store_path)
+        print(f"✅ Data loaded successfully!")
+        print(f"   - Train data: {train_data.shape}")
+        print(f"   - Test data: {test_data.shape}")
+        print(f"   - Store data: {store_data.shape}")
         
-        print(f"✅ Data loaded successfully:")
-        print(f"   Train: {train_df.shape}")
-        print(f"   Test: {test_df.shape}")
-        print(f"   Store: {store_df.shape}")
-        
-        return train_df, test_df, store_df
+        return train_data, test_data, store_data
         
     except FileNotFoundError as e:
+        print(f"❌ Error: Could not find data files. {e}")
+        print("Make sure train.csv, test.csv, and store.csv are in the 'data/' directory")
+        raise
+    except Exception as e:
         print(f"❌ Error loading data: {e}")
-        print(f"   Make sure CSV files exist in {data_path}/")
         raise
 
-
-def merge_with_store_data(df: pd.DataFrame, store_df: pd.DataFrame) -> pd.DataFrame:
+def merge_with_store_data(sales_data: pd.DataFrame, store_data: pd.DataFrame) -> pd.DataFrame:
     """
     Merge sales data with store information
     
     Args:
-        df: Sales dataframe (train or test)
-        store_df: Store information dataframe
+        sales_data: Train or test sales data
+        store_data: Store information data
         
     Returns:
-        Merged dataframe with store information
+        Merged dataframe
     """
-    merged_df = df.merge(store_df, on='Store', how='left')
+    merged_data = sales_data.merge(store_data, on='Store', how='left')
     
-    print(f"✅ Merged data shape: {merged_df.shape}")
-    print(f"   Added store features: {list(store_df.columns[1:])}")  # Exclude 'Store' column
-    
-    return merged_df
+    print(f"✅ Merged data shape: {merged_data.shape}")
+    return merged_data
 
-
-def filter_open_stores(df: pd.DataFrame, keep_open_only: bool = True) -> pd.DataFrame:
+def filter_open_stores(data: pd.DataFrame) -> pd.DataFrame:
     """
-    Filter stores based on Open status
+    Filter to only include data from open stores (Open = 1)
+    Note: Only applies to training data as test data doesn't have 'Open' column
     
     Args:
-        df: Dataframe with 'Open' column
-        keep_open_only: If True, keep only open stores (Open=1)
+        data: Sales data with store information
         
     Returns:
         Filtered dataframe
     """
-    if 'Open' not in df.columns:
-        print("⚠️  Warning: 'Open' column not found, returning original dataframe")
-        return df
-    
-    if keep_open_only:
-        original_count = len(df)
-        df_filtered = df[df['Open'] == 1].copy()
-        removed_count = original_count - len(df_filtered)
-        
-        print(f"✅ Filtered to open stores only:")
-        print(f"   Removed {removed_count:,} closed store records")
-        print(f"   Remaining: {len(df_filtered):,} records")
-        
-        return df_filtered
-    
-    return df
+    if 'Open' in data.columns:
+        # Filter to open stores only
+        filtered_data = data[data['Open'] == 1].copy()
+        print(f"✅ Filtered to open stores: {filtered_data.shape}")
+        return filtered_data
+    else:
+        print(f"✅ No 'Open' column found (test data): {data.shape}")
+        return data
 
-
-def fill_competition_distance(df: pd.DataFrame, fill_value: float = 50000) -> pd.DataFrame:
+def fill_competition_distance(data: pd.DataFrame) -> pd.DataFrame:
     """
     Fill missing CompetitionDistance values
     
     Args:
-        df: Dataframe with CompetitionDistance column
-        fill_value: Value to fill missing distances (default: 50000)
+        data: DataFrame with potential missing CompetitionDistance
         
     Returns:
-        Dataframe with filled CompetitionDistance
+        DataFrame with filled values
     """
-    if 'CompetitionDistance' not in df.columns:
-        print("⚠️  Warning: 'CompetitionDistance' column not found")
-        return df
+    data_filled = data.copy()
     
-    missing_count = df['CompetitionDistance'].isna().sum()
-    
+    # Fill missing CompetitionDistance with a large number (50000)
+    missing_count = data_filled['CompetitionDistance'].isna().sum()
     if missing_count > 0:
-        df = df.copy()
-        df['CompetitionDistance'].fillna(fill_value, inplace=True)
-        print(f"✅ Filled {missing_count:,} missing CompetitionDistance values with {fill_value}")
+        data_filled['CompetitionDistance'].fillna(50000, inplace=True)
+        print(f"✅ Filled {missing_count} missing CompetitionDistance values")
     else:
-        print("✅ No missing CompetitionDistance values found")
+        print("✅ No missing CompetitionDistance values")
     
-    return df
+    return data_filled
 
-
-def basic_data_info(df: pd.DataFrame, name: str = "Dataset") -> None:
+def preprocess_pipeline() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Print basic information about the dataset
+    Complete preprocessing pipeline
     
-    Args:
-        df: Dataframe to analyze
-        name: Name for display purposes
-    """
-    print(f"\n📊 {name} Info:")
-    print(f"   Shape: {df.shape}")
-    print(f"   Memory usage: {df.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
-    
-    # Check for missing values
-    missing = df.isnull().sum()
-    if missing.sum() > 0:
-        print(f"   Missing values:")
-        for col, count in missing[missing > 0].items():
-            print(f"     {col}: {count:,} ({count/len(df)*100:.1f}%)")
-    else:
-        print(f"   ✅ No missing values")
-    
-    # Data types
-    print(f"   Data types: {dict(df.dtypes.value_counts())}")
-
-
-def preprocess_pipeline(data_path: str = './data', 
-                       keep_open_only: bool = True,
-                       competition_fill_value: float = 50000) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Complete preprocessing pipeline for Rossmann data
-    
-    Args:
-        data_path: Path to data directory
-        keep_open_only: Whether to filter only open stores
-        competition_fill_value: Value to fill missing competition distances
-        
     Returns:
-        Tuple of (processed_train_df, processed_test_df)
+        Tuple of (processed_train_data, processed_test_data, store_data)
     """
-    print("🚀 Starting Rossmann data preprocessing pipeline...")
+    print("🔄 Starting data preprocessing pipeline...")
     
     # Step 1: Load data
-    train_df, test_df, store_df = load_data(data_path)
+    train_data, test_data, store_data = load_data()
     
-    # Step 2: Basic info
-    basic_data_info(train_df, "Training Data")
-    basic_data_info(test_df, "Test Data")
-    basic_data_info(store_df, "Store Data")
+    # Step 2: Merge with store data
+    print("\n📊 Merging with store data...")
+    train_merged = merge_with_store_data(train_data, store_data)
+    test_merged = merge_with_store_data(test_data, store_data)
     
-    # Step 3: Merge with store data
-    train_merged = merge_with_store_data(train_df, store_df)
-    test_merged = merge_with_store_data(test_df, store_df)
+    # Step 3: Filter open stores (only for training data)
+    print("\n🏪 Filtering open stores...")
+    train_filtered = filter_open_stores(train_merged)
+    test_filtered = test_merged  # Test data doesn't need filtering
     
-    # Step 4: Filter open stores (only for training data)
-    if keep_open_only and 'Open' in train_merged.columns:
-        train_processed = filter_open_stores(train_merged, keep_open_only=True)
-    else:
-        train_processed = train_merged.copy()
+    # Step 4: Fill missing values
+    print("\n🔧 Filling missing values...")
+    train_final = fill_competition_distance(train_filtered)
+    test_final = fill_competition_distance(test_filtered)
     
-    # For test data, we typically keep all records
-    test_processed = test_merged.copy()
+    print(f"\n✅ Preprocessing complete!")
+    print(f"   - Final train data: {train_final.shape}")
+    print(f"   - Final test data: {test_final.shape}")
     
-    # Step 5: Fill missing competition distances
-    train_processed = fill_competition_distance(train_processed, competition_fill_value)
-    test_processed = fill_competition_distance(test_processed, competition_fill_value)
-    
-    print(f"\n✅ Preprocessing pipeline completed!")
-    print(f"   Final train shape: {train_processed.shape}")
-    print(f"   Final test shape: {test_processed.shape}")
-    
-    return train_processed, test_processed
+    # Return all three: processed train, processed test, original store data
+    return train_final, test_final, store_data
 
+def basic_data_info(train_data: pd.DataFrame, test_data: pd.DataFrame, store_data: pd.DataFrame):
+    """
+    Print basic information about the datasets
+    
+    Args:
+        train_data: Training dataset
+        test_data: Test dataset  
+        store_data: Store dataset
+    """
+    print("\n📈 DATASET INFORMATION")
+    print("=" * 40)
+    
+    print(f"Training Data: {train_data.shape}")
+    print(f"Test Data: {test_data.shape}")
+    print(f"Store Data: {store_data.shape}")
+    
+    print(f"\nTraining Data Columns: {list(train_data.columns)}")
+    print(f"Test Data Columns: {list(test_data.columns)}")
+    
+    # Check for missing values
+    print(f"\nMissing Values in Training Data:")
+    train_missing = train_data.isnull().sum()
+    for col, missing in train_missing.items():
+        if missing > 0:
+            print(f"   - {col}: {missing}")
+    
+    print(f"\nMissing Values in Test Data:")
+    test_missing = test_data.isnull().sum()
+    for col, missing in test_missing.items():
+        if missing > 0:
+            print(f"   - {col}: {missing}")
+    
+    # Basic statistics
+    if 'Sales' in train_data.columns:
+        print(f"\nSales Statistics:")
+        print(f"   - Mean: {train_data['Sales'].mean():.2f}")
+        print(f"   - Median: {train_data['Sales'].median():.2f}")
+        print(f"   - Min: {train_data['Sales'].min():.2f}")
+        print(f"   - Max: {train_data['Sales'].max():.2f}")
 
 if __name__ == "__main__":
-    # Example usage
-    print("🧪 Testing Rossmann data preprocessing...")
-    
-    # First, let's check current directory and data path
-    print(f"Current working directory: {os.getcwd()}")
-    
-    # Check if data directory exists
-    data_path = './data'
-    if os.path.exists(data_path):
-        print(f"✅ Data directory found: {os.path.abspath(data_path)}")
-        files = os.listdir(data_path)
-        print(f"   Files in data directory: {files}")
-    else:
-        print(f"❌ Data directory not found: {os.path.abspath(data_path)}")
-        print("   Trying current directory...")
-        data_path = './data'
-        if os.path.exists(data_path):
-            print(f"✅ Found data directory: {os.path.abspath(data_path)}")
-            files = os.listdir(data_path)
-            print(f"   Files: {files}")
-        else:
-            print(f"❌ Data directory not found in current directory either")
-            print("   Please check your data directory location")
-            sys.exit(1)  # Exit the script instead of return
+    # Test the preprocessing pipeline
+    print("Testing Data Preprocessing Module")
+    print("=" * 50)
     
     try:
-        # Run the complete pipeline
-        print("\n🚀 Running preprocessing pipeline...")
-        train_df, test_df = preprocess_pipeline(data_path)
-        
-        print(f"\n🎯 Pipeline Results:")
-        print(f"   Train data: {train_df.shape}")
-        print(f"   Test data: {test_df.shape}")
-        print(f"   Available columns: {list(train_df.columns)}")
-        
+        train_data, test_data, store_data = preprocess_pipeline()
+        basic_data_info(train_data, test_data, store_data)
+        print("\n🎉 Preprocessing module working correctly!")
     except Exception as e:
-        print(f"\n❌ Error running pipeline: {e}")
-        print("   Check your data files and paths")
+        print(f"\n❌ Error in preprocessing: {e}")
+        import traceback
+        traceback.print_exc()
