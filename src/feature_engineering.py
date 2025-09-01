@@ -207,8 +207,8 @@ def select_model_features(df: pd.DataFrame, include_target: bool = True) -> pd.D
         model_features.append('Sales')
     
     # Add customers if available (for training data)
-    if 'Customers' in df.columns:
-        model_features.append('Customers')
+    # if 'Customers' in df.columns:
+    #     model_features.append('Customers')
     
     # Filter to available columns
     available_features = [col for col in model_features if col in df.columns]
@@ -295,7 +295,7 @@ if __name__ == "__main__":
         
         # Get preprocessed data
         print("Loading and preprocessing data...")
-        train_df, test_df = preprocess_pipeline()
+        train_df, test_df, store_data = preprocess_pipeline()
         
         # Run feature engineering on training data
         print("\n" + "="*60)

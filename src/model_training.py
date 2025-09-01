@@ -32,7 +32,7 @@ class ModelTrainer:
         
         # Features that need scaling (numerical features)
         self.numerical_features = [
-            'Store', 'DayOfWeek', 'Customers', 'Promo', 'SchoolHoliday',
+            'Store', 'DayOfWeek', 'Promo', 'SchoolHoliday',
             'CompetitionDistance', 'CompetitionOpenSinceMonth',
             'CompetitionOpenSinceYear', 'Promo2', 'Year', 'Month', 
             'Day', 'WeekOfYear', 'CompOpenSince', 'Promo2OpenSince', 'IsPromo2Month'
